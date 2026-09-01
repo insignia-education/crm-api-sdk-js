@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+PACKAGE=$(node -p "require('./package.json').name")
+VERSION=$(node -p "require('./package.json').version")
+
+echo "Running lint..."
+npm run lint
+
+echo "Running tests..."
+npm test
+
+echo "Checking if ${PACKAGE}@${VERSION} is already published..."
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/${PACKAGE}/${VERSION}")
+echo $STATUS
+if [ "$STATUS" = "200" ]; then
+    echo "Error: ${PACKAGE}@${VERSION} is already published on NPM."
+    echo "Bump the version in package.json before committing."
+    exit 1
+fi
+
+exit 0

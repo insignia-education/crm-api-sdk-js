@@ -1,0 +1,8 @@
+Makefile
+scripts/
+tests/
+coverage/
+.env
+.env.*
+!.env.example
+!.env.test.example

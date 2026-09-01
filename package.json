@@ -1,0 +1,44 @@
+{
+  "name": "@insignia-education/crm-api-sdk-js",
+  "version": "0.1.0",
+  "description": "JavaScript SDK for the Insignia Education CRM API",
+  "main": "index.js",
+  "type": "module",
+  "files": [
+    "index.js",
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./api": "./src/api/v1/index.js",
+    "./api/v1": "./src/api/v1/index.js"
+  },
+  "scripts": {
+    "test": "jest --selectProjects unit && jest --selectProjects integration --runInBand --testTimeout=60000",
+    "lint": "eslint src/",
+    "prepublishOnly": "node -e \"if (!process.env.GITHUB_ACTIONS) { console.error('Refusing to publish outside GitHub Actions CI — commit the version bump and push to master instead.'); process.exit(1); }\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/insignia-education/crm-api-sdk-js.git"
+  },
+  "author": "Insignia Education",
+  "license": "MIT",
+  "engines": {
+    "node": ">=25"
+  },
+  "bugs": {
+    "url": "https://github.com/insignia-education/crm-api-sdk-js/issues"
+  },
+  "homepage": "https://github.com/insignia-education/crm-api-sdk-js#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/preset-env": "^7.26.0",
+    "babel-jest": "^30.3.0",
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "jest": "^30.3.0",
+    "jest-html-reporter": "^4.3.0"
+  }
+}
