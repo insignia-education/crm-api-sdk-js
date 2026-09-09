@@ -1,6 +1,6 @@
 {
   "name": "@insignia-education/crm-api-sdk-js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JavaScript SDK for the Insignia Education CRM API",
   "main": "index.js",
   "type": "module",

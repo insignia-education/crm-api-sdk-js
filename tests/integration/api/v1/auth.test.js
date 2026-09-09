@@ -1,57 +1,83 @@
-import { api, registerTestUser, logout } from '../../../helpers.js';
+import { api, registerTestUser, login, logout } from '../../../helpers.js';
 
-describe('auth', () => {
-    test('loginOrRegister reports "register" for an email with no account', async () => {
-        const email = `no-such-user-${Date.now()}@example.com`;
-        const result = await api.auth.loginOrRegister(email);
-        expect(result).toBe('register');
-    });
-
-    test('register creates a user, then loginOrRegister reports "login" for that email', async () => {
+describe('Auth', () => {
+    test('loginOrRegister reflects whether the email belongs to an existing user', async () => {
         const user = await registerTestUser();
-        const result = await api.auth.loginOrRegister(user.email);
-        expect(result).toBe('login');
-    });
-
-    test('register rejects a duplicate email', async () => {
-        const user = await registerTestUser();
-        await expect(api.auth.register(user)).rejects.toMatchObject({ status: expect.any(Number) });
-    });
-
-    test('login with valid credentials returns a bearer token, and user() then returns the account', async () => {
-        const user = await registerTestUser();
-        const session = await api.auth.login({ email: user.email, password: user.password });
-        expect(session).toMatchObject({ access_token: expect.any(String), token_type: 'bearer' });
-
-        api.setToken(session.access_token);
-        const me = await api.auth.user();
-        expect(me).toMatchObject({ email: user.email, username: user.username });
-
         await logout();
-        api.setToken(null);
+        const result = await api.auth.loginOrRegister(user.email);
+        expect(result).toEqual(['login']);
     });
 
-    test('login with a wrong password is rejected', async () => {
+    test('loginOrRegister returns register for an email with no account', async () => {
+        const result = await api.auth.loginOrRegister(`nobody-${Date.now()}@gmail.com`);
+        expect(result).toEqual(['register']);
+    });
+
+    test('register creates a user, logs them in, and returns the user', async () => {
+        // username gets truncated to 20 chars by crm-api — "sdk-register-" (13) + unique must fit.
+        const unique = `${Date.now()}`.slice(-7);
+        const result = await api.auth.register({
+            email: `sdk-register-${unique}@gmail.com`,
+            username: `sdk-register-${unique}`,
+            name: 'SDK Register Test',
+            password: 'password123',
+            password_confirmation: 'password123',
+        });
+        expect(result).toMatchObject({ username: `sdk-register-${unique}` });
+        // register() logs the user in immediately (crm-api sets the `token` cookie
+        // on the same response), so a follow-up authenticated call should work
+        // without a separate login().
+        const me = await api.auth.user();
+        expect(me).toMatchObject({ username: `sdk-register-${unique}` });
+        await logout();
+    });
+
+    test('register surfaces a validation error for a missing required field', async () => {
+        await expect(api.auth.register({ email: 'missing-fields@gmail.com' })).rejects.toMatchObject({
+            status: 422,
+        });
+    });
+
+    test('login sets the session cookie for valid credentials', async () => {
         const user = await registerTestUser();
-        await expect(
-            api.auth.login({ email: user.email, password: 'not-the-right-password' })
-        ).rejects.toMatchObject({ status: expect.any(Number) });
+        await logout();
+        const result = await login(user);
+        expect(result).toMatchObject({ success: 'ok' });
+        const me = await api.auth.user();
+        expect(me).toMatchObject({ email: user.email });
+        await logout();
     });
 
-    test('user() without a token is rejected', async () => {
-        api.setToken(null);
+    test('login rejects an unknown email/password combination', async () => {
+        await expect(login({ email: 'nobody@gmail.com', password: 'wrong' })).rejects.toBeTruthy();
+    });
+
+    test('user() returns the authenticated user once logged in', async () => {
+        const user = await registerTestUser();
+        await login(user);
+        const me = await api.auth.user();
+        expect(me).toMatchObject({ email: user.email });
+        await logout();
+    });
+
+    test('user() rejects without a session', async () => {
         await expect(api.auth.user()).rejects.toMatchObject({ status: 401 });
     });
 
-    test('refresh issues a new token for an authenticated session', async () => {
+    test('refresh issues a new session cookie for an authenticated session', async () => {
         const user = await registerTestUser();
-        const session = await api.auth.login({ email: user.email, password: user.password });
-        api.setToken(session.access_token);
-
+        await login(user);
         const refreshed = await api.auth.refresh();
-        expect(refreshed).toMatchObject({ access_token: expect.any(String), token_type: 'bearer' });
-
+        expect(refreshed).toMatchObject({ token_type: 'bearer' });
+        const me = await api.auth.user();
+        expect(me).toMatchObject({ email: user.email });
         await logout();
-        api.setToken(null);
+    });
+
+    test('logout invalidates the current session', async () => {
+        const user = await registerTestUser();
+        await login(user);
+        await logout();
+        await expect(api.auth.user()).rejects.toMatchObject({ status: 401 });
     });
 });

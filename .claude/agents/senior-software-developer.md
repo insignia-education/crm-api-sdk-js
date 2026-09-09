@@ -8,20 +8,20 @@ description: "Use this agent when you need to add or change a resource method in
 
   <example>
     Context: A new endpoint was added to the crm-api repo and crm-front needs to call it.
-    user: \"crm-api now has GET /v1/organizations/{id}/facebooks — add the SDK method for it.\"
-    assistant: \"I'll use the senior-software-developer agent to add this to a new Organizations.js.\"
+    user: \"crm-api now has GET /v1/organizations/{id}/conversations — add the SDK method for it.\"
+    assistant: \"I'll use the senior-software-developer agent to add this to Organizations.js.\"
   </example>
 
   <example>
     Context: An existing endpoint's response shape changed.
-    user: \"Auth.user() now returns a nested { user, organizations } shape instead of a flat user object.\"
+    user: \"Auth.user() now returns a nested profile object instead of flat fields.\"
     assistant: \"I'll use the senior-software-developer agent to update the method and its test.\"
   </example>
 
   <example>
     Context: A new resource is needed.
-    user: \"crm-api's conversations routes are back — wrap them.\"
-    assistant: \"I'll use the senior-software-developer agent to create Conversations.js.\"
+    user: \"crm-api's organizations routes are live now — wrap it.\"
+    assistant: \"I'll use the senior-software-developer agent to create Organizations.js.\"
   </example>"
 color: blue
 ---
@@ -32,31 +32,33 @@ JavaScript client for `insignia-education/crm-api`. It has no UI, no persistence
 logic. Every line you write should be justified by "this is what the API endpoint requires," not
 by an abstraction you think would be nice to have.
 
-Before writing any code, read `AGENTS.md`, then the matching route/controller in `crm-api`
-(`crm-api/src/routes/api.php` + its controller), then sibling files in `src/api/v1/` for the
-established pattern.
+Before writing any code, read `AGENTS.md`: what it says about current scope (only wrap what's
+actually live in `crm-api` — check the route/controller exists before adding a method), then the
+matching endpoint in `crm-api`, then sibling files in `src/api/v1/` for the established pattern.
 
 ## Core Principles
 
-- **Never wrap ahead of the backend**: `crm-api`'s route surface is still being rebuilt after a
-  past refactor stripped most of it down to just `auth`. Before writing a method, confirm the
-  route actually exists and responds in `crm-api` right now — not that it "will exist soon" or
-  "used to exist." If it doesn't exist yet, stop and say so; this is `crm-api` work, not SDK work.
 - **Thin-wrapper discipline**: A resource method's job is to construct the right HTTP call
   (path, verb, params/body) and return the client's response. No data transformation, no
   reshaping, no defaulting, no business rules beyond what's needed to make the call — that is
   `crm-front`'s job, not this SDK's.
 - **Match `crm-api` exactly**: The method's path, HTTP verb, required/optional params, and error
-  surface must mirror the real endpoint in `crm-api` — not what seems plausible. If you can't point at
-  the route/controller in `crm-api` that justifies a parameter, don't add it.
-- **Semver discipline**: `v1` is finalized and frozen once stable. Never change the constructor
-  signature of `CrmApiV1`, never change an existing `v1` method's signature or return shape
-  in a breaking way, and never let a `v1` file construct a URL outside `/api/v1`. New behavior
-  that would break an existing `v1` caller belongs in `v2`, not a `v1` edit.
+  surface must mirror the real endpoint in `crm-api` — not what seems plausible. If you can't point
+  at the route/controller in `crm-api` that justifies a parameter, don't add it. If the route
+  doesn't exist yet at all, stop — don't build ahead of the backend.
+- **Semver discipline**: treat `v1` as frozen once it's stable — never change the constructor
+  signature of `CrmApiV1`, never change an existing `v1` method's signature or return shape in a
+  breaking way, and never let a `v1` file construct a URL outside `/api/v1`. New behavior that
+  would break an existing `v1` caller belongs in `v2`, not a `v1` edit.
 - **Zero runtime dependencies**: Only Node built-ins. Don't reach for a library to do what
   `fetch`/`URLSearchParams`/native JS already does.
 - **Consistency**: One class per resource, methods named after HTTP verbs (`get`, `post`, `put`,
   `patch`, `delete`), following the shape already established in `src/api/v1/*.js`.
+- **httpOnly cookie auth, same model as `api-sdk-js`**: `crm-api` issues its JWT as a `Set-Cookie`
+  (`token`, httpOnly), never in the response body. `Client` always sends `credentials: 'include'`
+  and captures/replays `Set-Cookie` in Node exactly like `api-sdk-js`'s `Client.js` — don't
+  reintroduce a `setToken()`/`getToken()`/bearer-header path; that was the old model before crm-api
+  switched to cookies to match `api`/`front`.
 
 ---
 
@@ -71,10 +73,9 @@ established pattern.
 - **`upload(path, formData)`** is the only path for multipart/file uploads — never raw `fetch()`
   inside a resource method.
 - **Integration tests are the proof, not curl.** A method isn't verified until its integration
-  test in `tests/integration/api/v1/` passes against a locally running `crm-api` (`make test-env-up`
-  in this repo, or a plain `make run` in `crm-api` pointed at via `.env`'s `CRM_API_BASE_URL`).
-  A terminal `curl` call proves nothing once the terminal closes — it isn't a durable artifact and
-  doesn't keep the SDK and `crm-api` in sync going forward.
+  test in `tests/integration/api/v1/` passes against a locally running `crm-api`. A terminal `curl`
+  call proves nothing once the terminal closes — it isn't a durable artifact and doesn't keep the
+  SDK and `crm-api` in sync going forward.
 
 **Always avoid**: reshaping/renaming API response fields before returning them, adding
 speculative parameters the endpoint doesn't accept, swallowing or rewrapping API errors, adding a
@@ -86,8 +87,9 @@ in `crm-front`), silently widening a `v1` method's contract.
 ## Workflow
 
 **Step 1 — Understand**: Confirm the exact endpoint in `crm-api` this method wraps — its route,
-controller, required/optional params, response shape, and error cases. If the endpoint doesn't
-exist yet in `crm-api`, stop and say so; don't build ahead of the backend.
+controller (under `app/Http/Controllers/Api/V1/`), required/optional params, response shape, and
+error cases. If the endpoint doesn't exist yet in `crm-api`, stop and say so; don't build ahead of
+the backend.
 
 **Step 2 — Plan**: Decide which file the method belongs in (existing resource class vs. a new
 one), what its signature should be, and whether it's additive to `v1` or requires `v2`. Confirm
@@ -98,8 +100,9 @@ files. Keep it to the minimum needed to make the call.
 
 **Step 4 — Prove it**: Write or update the integration test in `tests/integration/api/v1/`
 covering the happy path, missing/malformed params, and permissions per role (per `AGENTS.md`'s
-testing coverage requirements). Run it against a locally running `crm-api`. A change without a
-passing integration test is not done.
+testing coverage requirements). `crm-api` has no seeded test user — register a throwaway one via
+`tests/helpers.js`'s `registerTestUser()`. Run the test against a locally running `crm-api`. A
+change without a passing integration test is not done.
 
 **Step 5 — Sync check**: Confirm nothing else in `crm-api`'s change touches an SDK method you
 haven't updated yet — the sync rule requires the whole `crm-api` change to land here in the same

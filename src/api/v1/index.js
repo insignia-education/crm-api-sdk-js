@@ -1,5 +1,8 @@
 import CrmApi from '../index.js';
 import Auth from './Auth.js';
+import TwoFactor from './TwoFactor.js';
+import Users from './Users.js';
+import Webauthn from './Webauthn.js';
 
 export default class CrmApiV1 extends CrmApi {
 
@@ -14,5 +17,8 @@ export default class CrmApiV1 extends CrmApi {
         super(url);
 
         this.auth = new Auth(this);
+        this.users = new Users(this);
+        this.twoFactor = new TwoFactor(this);
+        this.webauthn = new Webauthn(this);
     }
 }

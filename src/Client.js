@@ -1,6 +1,6 @@
 export default class CrmClient {
     #baseUrl;
-    #token = null;
+    #cookies = new Map();
 
     constructor(baseUrl) {
         this.#baseUrl = CrmClient._resolve(baseUrl);
@@ -11,15 +11,14 @@ export default class CrmClient {
         return this.#baseUrl;
     }
 
-    /** crm-api issues a JWT (tymon/jwt-auth) in the login/refresh response body, not a Set-Cookie
-     * header — unlike api-sdk-js's cookie-capture model, auth here is a bearer token the consumer
-     * must explicitly pass back in with setToken() after login/refresh. */
-    getToken() {
-        return this.#token;
+    /** Node only — reads back a cookie captured from a prior response (e.g. to persist a session's JWT). */
+    getCookie(name) {
+        return this.#cookies.get(name) ?? null;
     }
 
-    setToken(token) {
-        this.#token = token;
+    /** Node only — seeds a cookie onto this client (e.g. to rehydrate a session captured earlier) so it's sent on subsequent requests. */
+    setCookie(name, value) {
+        this.#cookies.set(name, value);
     }
 
     static _resolve(baseUrl) {
@@ -42,9 +41,36 @@ export default class CrmClient {
         };
 
         if (this.#baseUrl.includes('ngrok')) headers['ngrok-skip-browser-warning'] = 'true';
-        if (this.#token) headers.Authorization = `Bearer ${this.#token}`;
+
+        const cookie = this.#cookieHeader();
+        if (cookie) headers.Cookie = cookie;
 
         return headers;
+    }
+
+    #cookieHeader() {
+        if (typeof window !== 'undefined' || this.#cookies.size === 0) return null;
+
+        return Array.from(this.#cookies.entries())
+            .map(([name, value]) => `${name}=${value}`)
+            .join('; ');
+    }
+
+    #storeCookies(response) {
+        if (typeof window !== 'undefined') return;
+
+        const headers = response.headers;
+        const setCookies = typeof headers?.getSetCookie === 'function'
+            ? headers.getSetCookie()
+            : [headers?.get?.('set-cookie')].filter(Boolean);
+
+        for (const setCookie of setCookies) {
+            const [pair] = setCookie.split(';');
+            const separator = pair.indexOf('=');
+            if (separator === -1) continue;
+
+            this.#cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+        }
     }
 
     async #parseResponse(response) {
@@ -66,9 +92,10 @@ export default class CrmClient {
     }
 
     async #request(method, path, body = null) {
-        const options = { method, headers: this.#headers() };
+        const options = { method, headers: this.#headers(), credentials: 'include' };
         if (body !== null) options.body = JSON.stringify(body);
         const response = await fetch(`${this.#baseUrl}${path}`, options);
+        this.#storeCookies(response);
         if (!response.ok) {
             const err = new Error(`HTTP ${response.status}`);
             err.status = response.status;
@@ -82,13 +109,15 @@ export default class CrmClient {
     async upload(path, formData) {
         const headers = { 'Accept': 'application/json' };
         if (this.#baseUrl.includes('ngrok')) headers['ngrok-skip-browser-warning'] = 'true';
-        if (this.#token) headers.Authorization = `Bearer ${this.#token}`;
+        const cookie = this.#cookieHeader();
+        if (cookie) headers.Cookie = cookie;
         // POST, not PUT: PHP only parses multipart/form-data bodies into $_FILES for
         // POST requests — a PUT with the exact same body leaves $_FILES empty and the
         // raw body unread, so `$request->file(...)` is always null server-side.
         const response = await fetch(`${this.#baseUrl}${path}`, {
-            method: 'POST', headers, body: formData,
+            method: 'POST', headers, credentials: 'include', body: formData,
         });
+        this.#storeCookies(response);
         if (!response.ok) {
             const err = new Error(`HTTP ${response.status}`);
             err.status = response.status;

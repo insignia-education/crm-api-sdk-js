@@ -134,26 +134,34 @@ describe('HTTP methods', () => {
         expect(options.headers['Content-Type']).toBe('application/json');
     });
 
-    test('no Authorization header when no token is set', async () => {
+    test('credentials is always include', async () => {
         await client.get('/path');
         const [, options] = global.fetch.mock.calls[0];
-        expect(options.headers.Authorization).toBeUndefined();
+        expect(options.credentials).toBe('include');
     });
 
-    test('setToken() adds a Bearer Authorization header to subsequent requests', async () => {
-        client.setToken('abc123');
-        await client.get('/path');
-        const [, options] = global.fetch.mock.calls[0];
-        expect(options.headers.Authorization).toBe('Bearer abc123');
-    });
+    test('stores response cookies and sends them on later requests in Node', async () => {
+        global.fetch = jest.fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                headers: {
+                    getSetCookie: () => ['token=abc123; Path=/; HttpOnly; SameSite=Lax'],
+                },
+                json: () => Promise.resolve({ success: 'ok' }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({ id: 1 }),
+            });
+        client = new CrmClient(BASE);
 
-    test('getToken() returns null before setToken() is called', () => {
-        expect(client.getToken()).toBeNull();
-    });
+        await client.post('/auth/login', { email: 'admin@example.com', password: 'secret' });
+        await client.get('/organizations/mine');
 
-    test('getToken() returns the value passed to setToken()', () => {
-        client.setToken('abc123');
-        expect(client.getToken()).toBe('abc123');
+        const [, options] = global.fetch.mock.calls[1];
+        expect(options.headers.Cookie).toBe('token=abc123');
     });
 
     test('returns parsed JSON from response', async () => {
@@ -171,11 +179,11 @@ describe('HTTP methods', () => {
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             status: 200,
-            text: () => Promise.resolve(JSON.stringify({ success: true, response: { access_token: 'tok' } })),
+            text: () => Promise.resolve(JSON.stringify({ success: true, response: { success: 'ok' } })),
         });
         client = new CrmClient(BASE);
         const result = await client.post('/auth/login', { email: 'a@b.com', password: 'secret' });
-        expect(result).toEqual({ access_token: 'tok' });
+        expect(result).toEqual({ success: 'ok' });
     });
 
     test('returns null for empty response text', async () => {
@@ -200,14 +208,13 @@ describe('HTTP methods', () => {
         expect(result).toBeNull();
     });
 
-    test('upload() sends a POST with the raw FormData body and Bearer header, no Content-Type', async () => {
+    test('upload() sends a POST with the raw FormData body and credentials included, no Content-Type', async () => {
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             status: 200,
             text: () => Promise.resolve(JSON.stringify({ success: true, response: { id: 1 } })),
         });
         client = new CrmClient(BASE);
-        client.setToken('abc123');
         const formData = { append: jest.fn() };
         const result = await client.upload('/files/upload', formData);
 
@@ -215,7 +222,7 @@ describe('HTTP methods', () => {
         expect(url).toBe(`${BASE}/files/upload`);
         expect(options.method).toBe('POST');
         expect(options.body).toBe(formData);
-        expect(options.headers.Authorization).toBe('Bearer abc123');
+        expect(options.credentials).toBe('include');
         expect(options.headers['Content-Type']).toBeUndefined();
         expect(result).toEqual({ id: 1 });
     });
@@ -244,5 +251,39 @@ describe('HTTP methods', () => {
             status: 401,
             data: { success: false, errors: 'Unauthorized' },
         });
+    });
+});
+
+// ─── getCookie / setCookie ─────────────────────────────────────────────────────
+
+describe('getCookie / setCookie', () => {
+    test('getCookie returns null when the cookie was never set', () => {
+        const client = new CrmClient(BASE);
+        expect(client.getCookie('token')).toBeNull();
+    });
+
+    test('setCookie seeds a cookie that is sent on the next request', async () => {
+        global.fetch = mockFetch();
+        const client = new CrmClient(BASE);
+        client.setCookie('token', 'abc123');
+
+        await client.get('/path');
+
+        const [, options] = global.fetch.mock.calls[0];
+        expect(options.headers.Cookie).toBe('token=abc123');
+    });
+
+    test('getCookie reads back a cookie captured from a response', async () => {
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            headers: { getSetCookie: () => ['token=abc123; Path=/; HttpOnly'] },
+            json: () => Promise.resolve({ success: 'ok' }),
+        });
+        const client = new CrmClient(BASE);
+
+        await client.post('/auth/login', { email: 'admin@example.com', password: 'secret' });
+
+        expect(client.getCookie('token')).toBe('abc123');
     });
 });

@@ -26,11 +26,12 @@ test:
 AWS_REGION := us-east-2
 ECR_HOST := 368539636127.dkr.ecr.us-east-2.amazonaws.com
 MYSQL_IMAGE := $(ECR_HOST)/insignia/mysql:8.4.9
-# Unlike api-sdk-js (which pulls a published insignia/api-test image), crm-api
-# has no CI step publishing a crm-api-test image yet — build it locally from
-# the sibling repo instead. Swap this for a pulled ECR image if that changes.
-CRM_API_DIR := ../crm-api
+# crm-api has no published crm-api-test ECR image yet (unlike api-sdk-js's
+# insignia/api-test) — build it locally from the sibling ../crm-api repo's
+# Dockerfile.test instead. Swap this for a pulled image if/when crm-api adds
+# a CI step that publishes one.
 CRM_API_TEST_IMAGE := crm-api-test:local
+CRM_API_DIR := ../crm-api
 
 TEST_NETWORK := crm-api-sdk-test-net
 TEST_DB_CONTAINER := crm-api-sdk-test-db
@@ -38,7 +39,8 @@ TEST_API_CONTAINER := crm-api-sdk-test-api
 TEST_DB_PASSWORD := ephemeral12345
 TEST_DB_DATABASE := zubi
 # Matches .env.test's CRM_API_BASE_URL — don't change one without the other.
-# 8003, not 8002, so this never collides with crm-api's own local dev server.
+# 8003, not 8002, so this never collides with a locally-running `make run`
+# dev server in crm-api.
 TEST_API_PORT := 8003
 
 .PHONY: test-env-up test-env-down ecr-login
@@ -49,8 +51,8 @@ ecr-login:
 # Boots a throwaway MySQL + crm-api-test container pair on their own docker
 # network. Neither container gets a volume, so `docker rm` (test-env-down)
 # leaves nothing behind — every run starts from a schema-only db, migrated
-# fresh. crm-api has no seeded test user (see tests/helpers.js's
-# registerTestUser), so no db:seed step is needed here.
+# fresh. crm-api has no base-migration user seed (unlike api's TEST_EMAIL),
+# so tests/helpers.js registers its own throwaway user per test run instead.
 test-env-up: ecr-login
 	@$(MAKE) test-env-down
 	@echo "Freeing host port $(TEST_API_PORT) if something local is already on it..."
@@ -89,10 +91,10 @@ test-env-up: ecr-login
 		-e SESSION_LIFETIME=43200 \
 		-e SESSION_SECURE_COOKIE=false \
 		-e SESSION_HTTP_ONLY=true \
-		-e CACHE_PREFIX=cache \
+		-e CACHE_DRIVER=file \
 		-e QUEUE_CONNECTION=sync \
 		-e BROADCAST_DRIVER=log \
-		-e MAIL_DRIVER=log \
+		-e MAIL_MAILER=log \
 		-e JWT_SECRET="$$(openssl rand -hex 32)" \
 		$(CRM_API_TEST_IMAGE) >/dev/null
 	@echo "Waiting for API to respond..."
