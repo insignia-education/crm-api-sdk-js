@@ -1,5 +1,17 @@
 # Insignia Education — CRM API SDK (JavaScript)
 
+> **Status: Active — the sole client for `insignia-education/crm-api`.**
+> A thin, zero-runtime-dependency JavaScript SDK wrapping the Laravel 12 backend
+> [`insignia-education/crm-api`](../crm-api). Consumed by
+> [`insignia-education/crm-front`](../crm-front) (React 19 + Vite 8 SPA) — it doesn't call
+> `crm-api` directly. Currently only wraps `crm-api`'s live `auth` endpoints; other resources are
+> added here as `crm-api`'s own route rebuild lands them (see "Scope right now" below).
+
+This is the canonical, agent-readable source of project guidance for this repo. `CLAUDE.md`
+(same directory) is a thin pointer to this file, and deeper reference material lives under
+`.ai/` — see `.ai/guidelines/research-order.md` for the lookup sequence to follow before writing
+or changing a resource method, and `.ai/docs/deployment.md` for the full publish workflow.
+
 ## Requirements
 - Node 25 (`nvm use 25`)
 
@@ -18,6 +30,18 @@ Consumed by `insignia-education/crm-front` via `@insignia-education/crm-api-sdk-
 Sibling of [`insignia-education/api-sdk-js`](../api-sdk-js) (same conventions, wraps a different
 backend — `crm-api` instead of `api`). If you already know that repo, this one will look familiar
 on purpose.
+
+## Related repos
+
+| Repo | Role |
+|---|---|
+| [`crm-api`](../crm-api) | Laravel backend this SDK wraps. Any endpoint added, renamed, or removed there must be mirrored here in the same task — see the "API ↔ SDK sync rule" below. |
+| [`crm-front`](../crm-front) | The only consumer. Talks to `crm-api` exclusively through this package — a method missing here is a method `crm-front` cannot use. |
+| [`api-sdk-js`](../api-sdk-js) | Sibling SDK for the unrelated `api` backend. Same conventions, different backend — useful as a reference for established patterns, not a dependency. |
+
+This SDK has no independent purpose — it only exists to mirror `crm-api`. When in doubt about what
+a method should do, the answer is "whatever the matching `crm-api` endpoint does," not a judgment
+call made here.
 
 ## API versioning
 The SDK is versioned to match the API:
@@ -151,6 +175,11 @@ previously published version" — the version in `package.json` must always be h
 already on the registry, with no exceptions for "small" changes, and no exception for "I already
 bumped it earlier this session." Skipping step 3 risks pinning `crm-front` to a version that isn't
 actually there. Skipping step 4 leaves `crm-front` silently running stale SDK code with no error.
+
+`.github/workflows/npm-publish.yml` is what actually runs `npm publish` on push to `master` — read
+`.ai/docs/deployment.md` before touching `master` for the full mechanics (what the workflow does
+and doesn't do, OIDC trusted publishing, and the one-time bootstrap exception via
+`make publish-force`).
 
 ## Consumption — never symlink
 
