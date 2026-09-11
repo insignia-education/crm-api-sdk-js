@@ -119,6 +119,20 @@ precommit:
 publish:
 	@$(NVM) nvm use $(NODE_VERSION) && (npm whoami 2>/dev/null || npm login) && npm publish --access public
 
+# One-time manual bootstrap — bypasses the CI-only guard (package.json's
+# prepublishOnly script) via --ignore-scripts, publishing under your own npm
+# login instead of GitHub Actions' OIDC trusted publishing. Needed because
+# OIDC trusted publishing can't create a brand-new scoped package, only
+# publish new versions of one that already exists — so the very first publish
+# of this package has to happen some other way.
+# Once this package exists on the registry, go back to plain `publish` (via
+# the normal version-bump-commit-push-to-master flow) for every version after
+# this one — and register this package as a Trusted Publisher on npmjs.com
+# (org -> this package -> Trusted Publisher -> this repo's npm-publish.yml)
+# so that flow keeps working without ever needing this target again.
+publish-force:
+	@$(NVM) nvm use $(NODE_VERSION) && (npm whoami 2>/dev/null || npm login) && npm publish --access public --ignore-scripts
+
 release:
 	@make install
 	@bash scripts/release.sh
