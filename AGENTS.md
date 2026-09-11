@@ -12,6 +12,12 @@ This is the canonical, agent-readable source of project guidance for this repo. 
 `.ai/` — see `.ai/guidelines/research-order.md` for the lookup sequence to follow before writing
 or changing a resource method, and `.ai/docs/deployment.md` for the full publish workflow.
 
+## Skills & subagents
+
+Real subagent personas live under `.claude/agents/` (Claude Code only auto-discovers them there).
+`.ai/agents` is a symlink to the same content, so anyone browsing `.ai/` for everything finds it
+too — edit under `.claude/`, `.ai/` just follows.
+
 ## Requirements
 - Node 25 (`nvm use 25`)
 
