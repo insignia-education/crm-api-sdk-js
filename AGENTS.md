@@ -223,6 +223,13 @@ manual `ln -s` into `node_modules`, etc.), even for local iteration.
 - **NEVER commit in the agent's or Claude's name.** All commits must be authored solely by the human developer. Do not add `Co-Authored-By` trailers that name Claude or any AI agent — in shared/collaborative repositories this would falsely attribute work and obscure accountability.
 - **Committing and pushing is fine.** You may commit and push as part of normal work — no need to ask first each time. The only hard rule is authorship: commits sail under whatever author name/email git is already configured with (the human developer's), never an agent's identity.
 
+## Git workflow
+
+- **Branch per task.** Create a new branch off `master` before starting any task — don't commit directly to `master`.
+- **Keep your branch current.** Regularly merge `master` into your task branch as work progresses, so it doesn't drift.
+- **One branch per unit of work.** If the same task spans multiple sessions, reuse its existing branch rather than creating a new one each time.
+- **Ask before merging.** Never merge a task branch into `master` on your own judgment — ask for explicit permission first.
+
 ## Communication style
 - Respond as briefly as possible. Caveman mode: shortest answer that works. No fluff, no summaries, no "here is what I did".
 
