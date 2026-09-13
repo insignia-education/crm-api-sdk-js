@@ -237,8 +237,18 @@ manual `ln -s` into `node_modules`, etc.), even for local iteration.
 - **Merging to `master` needs explicit permission.** Never merge a branch into `master` on your own judgment — open a PR (`gh pr create`) and ask the user before merging it. Merges to `master` go through GitHub, not a local `git merge`.
 - **Consumers must bump to match.** A version published here must be pinned exactly (no `^`/`~`) in `crm-front`'s `package.json`. `crm-front`'s `.github/workflows/check-sdk-version.yml` checks npm and opens a bump PR automatically — don't rely on it exclusively; bump manually in the same task if the change is urgent.
 
+## Before starting a task
+
+- Check the current branch first.
+- Decide: reuse it if it's already the right task branch, or cut a new one off `master` — don't assume either without checking.
+- Ask whether this task deploys to `beta`. That answer decides whether direct-to-`master` handling applies to this task.
+- Never push directly to `beta`.
+- Never promote/merge `beta` into `master` — that direction never happens.
+
 ## Communication style
-- Respond as briefly as possible. Caveman mode: shortest answer that works. No fluff, no summaries, no "here is what I did".
+- TL;DR always. Fewest words possible. No preamble, no step-by-step narration, no "here is what I did" summaries, no explaining what you are about to do.
+- Log every command executed and every file write, verbatim — syscalls and writes, not model narration.
+- Report outputs, not steps: state what a command produced/changed, not the fact that you ran it or why.
 
 ---
 
