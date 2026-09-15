@@ -231,19 +231,27 @@ manual `ln -s` into `node_modules`, etc.), even for local iteration.
 
 ## Git workflow
 
-- **Branch per task.** Create a new branch off `master` before starting any task — don't commit directly to `master`.
+- **Always confirm the branch first.** Before starting any task, check the current branch and ask the user which branch to use — don't assume, even when one looks obviously right. A stale branch, or another session's branch mid-task, can look plausible and still be wrong.
+- **Branch per task, cut from `master` only.**
+  ```
+  git checkout master && git pull && git checkout -b task/<name>
+  ```
+- **Never commit directly to `master`.** All work happens on a task branch. (This repo has no `beta` branch — it's a published npm package, not a deployed app; ignore any stale reference elsewhere in this file to one.)
+- **Keep local `master` updated.** `git pull` it before cutting a new branch and before merging any PR into it.
 - **One branch at a time.** If multiple sessions are working on different things here concurrently, don't spin up a branch per session — consolidate onto a single branch and tell the user that's what's happening.
 - **Always sync before committing.** Merge `master` into your task branch before every commit — the branch should never drift from `master`.
 - **Merging to `master` needs explicit permission.** Never merge a branch into `master` on your own judgment — open a PR (`gh pr create`) and ask the user before merging it. Merges to `master` go through GitHub, not a local `git merge`.
+- **After a branch's PR merges, clean up.** Delete it locally and on GitHub, and switch back to `master` locally.
+  ```
+  git checkout master && git pull
+  git branch -d task/<name>
+  git push origin --delete task/<name>
+  ```
 - **Consumers must bump to match.** A version published here must be pinned exactly (no `^`/`~`) in `crm-front`'s `package.json`. `crm-front`'s `.github/workflows/check-sdk-version.yml` checks npm and opens a bump PR automatically — don't rely on it exclusively; bump manually in the same task if the change is urgent.
 
 ## Before starting a task
 
-- Check the current branch first.
-- Decide: reuse it if it's already the right task branch, or cut a new one off `master` — don't assume either without checking.
-- Ask whether this task deploys to `beta`. That answer decides whether direct-to-`master` handling applies to this task.
-- Never push directly to `beta`.
-- Never promote/merge `beta` into `master` — that direction never happens.
+See "Git workflow" above — check the current branch and ask the user which one to use before doing anything else.
 
 ## Communication style
 - TL;DR always. Fewest words possible. No preamble, no step-by-step narration, no "here is what I did" summaries, no explaining what you are about to do.
