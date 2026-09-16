@@ -33,7 +33,7 @@
   "homepage": "https://github.com/insignia-education/crm-api-sdk-js#readme",
   "dependencies": {},
   "devDependencies": {
-    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-env": "^8.0.5",
     "babel-jest": "^30.3.0",
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
